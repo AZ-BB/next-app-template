@@ -1,142 +1,72 @@
-import { handleOAuthCallback } from "@/action/auth";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { handleOAuthCallback } from '@/action/auth'
 
-export async function GET(request: NextRequest) {
-    console.log("Auth callback request received");
+export async function GET(request: Request) {
+  const requestUrl = new URL(request.url)
+  const code = requestUrl.searchParams.get('code')
+  const next = requestUrl.searchParams.get('next') || '/brands'
+  const origin = requestUrl.origin
 
-    const requestUrl = new URL(request.url);
-    
-    // Supabase uses different parameters for different flows:
-    // - "code" for PKCE flows (email confirmation, OAuth)
-    // - "token_hash" for older email confirmation flows
-    // - "type" to indicate the flow type (signup, recovery, etc.)
-    // - "provider" to indicate OAuth provider
-    const code = requestUrl.searchParams.get("code");
-    const tokenHash = requestUrl.searchParams.get("token_hash");
-    const type = requestUrl.searchParams.get("type");
-    const next = requestUrl.searchParams.get("next") ?? "/";
-    const provider = requestUrl.searchParams.get("provider");
-    
-    console.log("Callback params:", { code, tokenHash, type, next, provider, url: requestUrl.toString() });
+  console.log('🟡 [Callback] OAuth callback received')
+  console.log('🟡 [Callback] URL:', requestUrl.toString())
+  console.log('🟡 [Callback] Code present:', !!code)
+  console.log('🟡 [Callback] Next path:', next)
 
-    // Check if we have either code or token_hash
-    if (!code && !tokenHash) {
-        console.error("Missing code or token_hash parameter");
-        return NextResponse.redirect(
-            new URL("/login?error=Missing%20authentication%20code", requestUrl.origin)
-        );
-    }
-
-    try {
-        const cookieStore = await cookies();
-        const supabase = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                cookies: {
-                    getAll() {
-                        return cookieStore.getAll();
-                    },
-                    setAll(cookiesToSet) {
-                        try {
-                            cookiesToSet.forEach(({ name, value, options }) =>
-                                cookieStore.set(name, value, options)
-                            );
-                        } catch {
-                            // The `setAll` method was called from a Server Component.
-                            // This can be ignored if you have middleware refreshing
-                            // user sessions.
-                        }
-                    },
-                },
-            }
-        );
-
-        // ============================================
-        // OAUTH AUTHENTICATION FLOW
-        // ============================================
-        if (provider) {
-            console.log("Processing OAuth callback for provider:", provider);
-
-            // Validate provider is one of the supported OAuth providers
-            const supportedProviders = ["google", "github", "facebook", "twitter", "discord"];
-            if (!supportedProviders.includes(provider)) {
-                return NextResponse.redirect(
-                    new URL("/login?error=unsupported_provider", requestUrl.origin)
-                );
-            }
-
-            if (!code) {
-                return NextResponse.redirect(
-                    new URL("/login?error=missing_code", requestUrl.origin)
-                );
-            }
-
-            // Exchange code for session
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-            if (error) {
-                console.error("OAuth authentication error:", error);
-                return NextResponse.redirect(
-                    new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin)
-                );
-            }
-
-            // Handle OAuth-specific user creation/update in database
-            const { error: handleOAuthCallbackError } = await handleOAuthCallback();
-            if (handleOAuthCallbackError) {
-                console.error("OAuth callback error:", handleOAuthCallbackError);
-                return NextResponse.redirect(
-                    new URL(`/login?error=${encodeURIComponent(handleOAuthCallbackError)}`, requestUrl.origin)
-                );
-            }
-
-            // Successful OAuth authentication - redirect to next path
-            const response = NextResponse.redirect(new URL(next, requestUrl.origin));
-            
-            // Optional: clear pending signup profile cookie
+  if (code) {
+    console.log('🟡 [Callback] Exchanging code for session...')
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
             try {
-                response.cookies.delete("pending_profile");
-            } catch { }
-
-            return response;
-        }
-
-        // ============================================
-        // EMAIL CONFIRMATION FLOW
-        // ============================================
-        console.log("Processing email confirmation callback");
-
-        // Exchange code for session or verify OTP
-        const { data, error } = code 
-            ? await supabase.auth.exchangeCodeForSession(code)
-            : await supabase.auth.verifyOtp({ token_hash: tokenHash!, type: type as any });
-
-        console.log("Auth result:", { data, error });
-
-        if (error) {
-            console.error("Auth error:", error);
-            return NextResponse.redirect(
-                new URL(`/login?error=${encodeURIComponent(error.message)}`, requestUrl.origin)
-            );
-        }
-
-        // Redirect to next path
-        const response = NextResponse.redirect(new URL(next, requestUrl.origin));
-
-        // Optional: clear pending signup profile cookie
-        try {
-            response.cookies.delete("pending_profile");
-        } catch { }
-
-        return response;
-    } catch (error) {
-        console.error("Unexpected auth callback error:", error);
-        return NextResponse.redirect(
-            new URL("/login?error=authentication_failed", requestUrl.origin)
-        );
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch (error) {
+              // Cookie setting can fail if headers are already sent
+              console.error('❌ [Callback] Error setting cookies:', error)
+            }
+          },
+        },
+      }
+    )
+    
+    // Exchange the code for a session
+    const { error: exchangeError, data: sessionData } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (exchangeError) {
+      console.error('❌ [Callback] Error exchanging code for session:', exchangeError)
+      return NextResponse.redirect(`${origin}/login?error=oauth_failed&message=${encodeURIComponent(exchangeError.message)}`)
     }
+
+    console.log('✅ [Callback] Session created for user:', sessionData?.user?.email)
+    console.log('🟡 [Callback] Handling OAuth callback (creating/updating user in DB)...')
+
+    // Handle the OAuth callback (create/update user in database)
+    const callbackResult = await handleOAuthCallback()
+    
+    if (callbackResult.error) {
+      console.error('❌ [Callback] Error in OAuth callback:', callbackResult.error)
+      return NextResponse.redirect(`${origin}/login?error=callback_failed&message=${encodeURIComponent(callbackResult.error)}`)
+    }
+
+    console.log('✅ [Callback] User created/updated successfully')
+    console.log('🟡 [Callback] Redirecting to:', `${origin}${next}`)
+
+    // Successful authentication - redirect to next page
+    return NextResponse.redirect(`${origin}${next}`)
+  }
+
+  // No code present, redirect to login
+  console.error('❌ [Callback] No code present in callback URL')
+  return NextResponse.redirect(`${origin}/login?error=no_code`)
 }
 

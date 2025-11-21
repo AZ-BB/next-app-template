@@ -114,7 +114,7 @@ export async function signInWithGoogleUser(nextPath: string): Promise<GeneralRes
         const supabase = await createSupabaseServerClient();
         const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-        const callbackUrl = `${origin}/auth/callback?provider=google` + (nextPath ? `&next=${encodeURIComponent(nextPath)}` : '');
+        const callbackUrl = `${origin}/auth/callback?provider=google` + (nextPath ? encodeURIComponent(`&next=${nextPath}`) : '');
 
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
