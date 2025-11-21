@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 
 export async function GET(req: NextRequest) {
+
+    console.log("Callback request received")
+
     const requestUrl = new URL(req.url)
     
     // Supabase uses different parameters for different flows:
