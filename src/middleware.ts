@@ -30,15 +30,16 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ["/login", "/signup", "/api", "/auth/callback"]
   const isPublicRoute = publicRoutes.some((route) => path.startsWith(route))
 
-  // Skip authentication check for callback route - it handles its own auth
-  if (path.startsWith("/auth/callback")) {
-    return supabaseResponse
-  }
-
   // Refresh session if expired - this is important for automatic login after email confirmation
+  // Always call getUser() to refresh the session, even for callback routes
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // Allow callback route to process - it handles its own auth logic
+  if (path.startsWith("/auth/callback")) {
+    return supabaseResponse
+  }
 
   // Define auth routes (login, signup) - exclude callback as it needs to process first
   const authRoutes = ["/login", "/signup"]
