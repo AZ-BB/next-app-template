@@ -35,8 +35,8 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ["/login", "/signup", "/api", "/auth/callback"]
   const isPublicRoute = publicRoutes.some((route) => path.startsWith(route))
 
-  // Define auth routes (login, signup)
-  const authRoutes = ["/login", "/signup", "/auth/callback"]
+  // Define auth routes (login, signup) - exclude callback as it needs to process first
+  const authRoutes = ["/login", "/signup"]
   const isAuthRoute = authRoutes.some((route) => path.startsWith(route))
 
   // If user is authenticated and trying to access auth routes (login/signup),
