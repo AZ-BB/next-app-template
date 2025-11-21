@@ -5,7 +5,7 @@ import { SystemRole } from "@/db/enums";
 import { users } from "@/db/schema/schema";
 import { GeneralResponse } from "@/utils/general-response";
 import { createSupabaseAdminServerClient, createSupabaseServerClient } from "@/utils/supabase-server";
-import config from "../../config"
+import config, { OAuthProvider } from "../../config"
 import { eq } from "drizzle-orm";
 
 export async function registerUser(formData: FormData): Promise<GeneralResponse<boolean>> {
@@ -135,16 +135,24 @@ export async function signInWithGoogleUser(nextPath: string): Promise<GeneralRes
     }
 }
 
-export async function handleOAuthCallback(): Promise<GeneralResponse<boolean>> {
+export async function handleOAuthCallback(provider: string): Promise<GeneralResponse<boolean>> {
     try {
+
         const supabase = await createSupabaseServerClient();
         const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (provider !== 'google') {
+            const supabaseAdmin = await createSupabaseAdminServerClient();
+            const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(user?.id!);
+            if (deleteUserError) {
+                return { error: deleteUserError.message, statusCode: 400, data: false };
+            }
+            return { error: "Invalid provider", statusCode: 400, data: false };
+        }
 
         if (error) {
             return { error: error.message, statusCode: 400, data: false };
         }
-
-        console.log(user?.user_metadata);
 
         const isUserExists = await db.select().from(users).where(eq(users.id, user?.id!));
         if (isUserExists.length > 0) {
@@ -156,6 +164,7 @@ export async function handleOAuthCallback(): Promise<GeneralResponse<boolean>> {
             firstName: user?.user_metadata?.full_name?.split(' ')[0],
             lastName: user?.user_metadata?.full_name?.split(' ')[1],
             email: user?.email!,
+            avatarUrl: user?.user_metadata?.avatar_url,
             role: SystemRole.USER
         })
 

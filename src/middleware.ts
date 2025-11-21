@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/login', '/signup', '/auth/callback']
+  const publicRoutes = ['/login', '/signup', '/auth/callback', '/auth']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
   
   // OAuth callback route needs special handling - always allow it through
@@ -52,12 +52,7 @@ export async function middleware(request: NextRequest) {
   // If user is authenticated and trying to access auth pages, redirect to home
   // BUT allow the callback route to complete its processing
   if (session && isPublicRoute && !isCallbackRoute) {
-    return NextResponse.redirect(new URL('/brands', request.url))
-  }
-
-  // Redirect from root to /brands
-  if (pathname === '/') {
-    return NextResponse.redirect(new URL('/brands', request.url))
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return supabaseResponse
