@@ -32,11 +32,11 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Define public routes that don't require authentication
-  const publicRoutes = ["/login", "/signup", "/api"]
+  const publicRoutes = ["/login", "/signup", "/api", "/auth/callback"]
   const isPublicRoute = publicRoutes.some((route) => path.startsWith(route))
 
   // Define auth routes (login, signup)
-  const authRoutes = ["/login", "/signup"]
+  const authRoutes = ["/login", "/signup", "/auth/callback"]
   const isAuthRoute = authRoutes.some((route) => path.startsWith(route))
 
   // If user is authenticated and trying to access auth routes (login/signup),
