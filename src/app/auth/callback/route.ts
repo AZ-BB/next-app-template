@@ -17,12 +17,14 @@ export async function GET(request: Request) {
   }
   const supabase = await createSupabaseServerClient()
   if (!code) {
+    console.log('No code found')
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)
   }
 
   const { error: exchangeCodeError } = await supabase.auth.exchangeCodeForSession(code)
 
   if (exchangeCodeError) {
+    console.log('Exchange code error', exchangeCodeError)
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)
   }
 
