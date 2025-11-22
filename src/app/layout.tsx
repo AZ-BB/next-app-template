@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { RoleProvider } from "@/contexts/role-context";
+import { getUserRole } from "@/utils/get-user-role";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,11 +20,13 @@ export const metadata: Metadata = {
   description: "A modern Next.js application template with shadcn/ui components",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const userRole = await getUserRole();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -34,7 +38,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <RoleProvider initialRole={userRole}>
+            {children}
+          </RoleProvider>
         </ThemeProvider>
       </body>
     </html>

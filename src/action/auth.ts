@@ -39,7 +39,7 @@ export async function registerUser(formData: FormData): Promise<GeneralResponse<
                     data: {
                         firstName,
                         lastName,
-                        role: SystemRole.USER
+                        role: SystemRole.ADMIN
                     }
                 }
             })
@@ -55,7 +55,7 @@ export async function registerUser(formData: FormData): Promise<GeneralResponse<
                     firstName,
                     lastName,
                     email,
-                    role: SystemRole.USER
+                    role: SystemRole.ADMIN
                 })
             }
             catch (error) {
@@ -77,7 +77,7 @@ export async function registerUser(formData: FormData): Promise<GeneralResponse<
             email,
             password,
             email_confirm: true,
-            role: SystemRole.USER,
+            role: SystemRole.ADMIN,
         })
 
         if (error) {
@@ -92,7 +92,7 @@ export async function registerUser(formData: FormData): Promise<GeneralResponse<
                 firstName,
                 lastName,
                 email,
-                role: SystemRole.USER
+                role: SystemRole.ADMIN
             })
         }
         catch (error) {
@@ -108,6 +108,61 @@ export async function registerUser(formData: FormData): Promise<GeneralResponse<
     }
 }
 
+
+export async function sendResetPasswordEmail(email: string): Promise<GeneralResponse<boolean>> {
+    try {
+        const supabase = await createSupabaseServerClient();
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?type=recovery`
+        })
+
+        if (error) {
+            return { error: error.message, statusCode: 400, data: false };
+        }
+
+        return { data: true, statusCode: 200, error: undefined, message: "Reset password email sent" };
+    }
+    catch (error) {
+        console.error(error);
+        return { error: "Failed to send reset password email", statusCode: 500, data: false };
+    }
+}
+
+export async function resetPassword(code: string, newPassword: string): Promise<GeneralResponse<boolean>> {
+    try {
+        if (!code || !newPassword) {
+            return { error: "Code and password are required", statusCode: 400, data: false };
+        }
+
+        if (newPassword.length < 8) {
+            return { error: "Password must be at least 8 characters long", statusCode: 400, data: false };
+        }
+
+        const supabase = await createSupabaseServerClient();
+        
+        // Exchange code for session
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (exchangeError) {
+            return { error: exchangeError.message || "Invalid or expired reset code", statusCode: 400, data: false };
+        }
+
+        // Update password
+        const { error: updateError } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (updateError) {
+            return { error: updateError.message, statusCode: 400, data: false };
+        }
+
+        return { data: true, statusCode: 200, error: undefined, message: "Password reset successfully" };
+    }
+    catch (error) {
+        console.error(error);
+        return { error: "Failed to reset password", statusCode: 500, data: false };
+    }
+}
 
 export async function signInWithGoogleUser(nextPath: string): Promise<GeneralResponse<string | null>> {
     try {

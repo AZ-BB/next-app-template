@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 // The client you created from the Server-Side Auth instructions
 import { createSupabaseServerClient } from '@/utils/supabase-server'
 import { handleOAuthCallback } from '@/action/auth';
+
 export async function GET(request: Request) {
 
   console.log('Callback route hit');
@@ -9,6 +10,11 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const provider = searchParams.get('provider')
   const code = searchParams.get('code')
+
+  const type = searchParams.get('type')
+
+  console.log('Type', type);
+
   // if "next" is in param, use it as the redirect URL
   let next = searchParams.get('next') ?? '/'
   if (!next.startsWith('/')) {
@@ -21,6 +27,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)
   }
 
+  if (type && type === 'recovery') {
+    return NextResponse.redirect(`${origin}/auth/reset-password?code=${code}`)
+  }
+
+
   const { error: exchangeCodeError } = await supabase.auth.exchangeCodeForSession(code)
 
   if (exchangeCodeError) {
@@ -28,8 +39,9 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)
   }
 
+
   if (provider) {
-      await handleOAuthCallback(provider)
+    await handleOAuthCallback(provider)
   }
 
   return NextResponse.redirect(`${origin}${next}`)

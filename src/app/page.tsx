@@ -126,6 +126,8 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useRouter } from "next/navigation"
 import { createSupabaseBrowserClient } from "@/utils/supabase-browser"
+import AccessControl from "@/components/access-control"
+import { SystemRole } from "@/db/enums"
 
 export default function Home() {
   const router = useRouter()
@@ -182,6 +184,12 @@ export default function Home() {
           </SidebarContent>
           <SidebarFooter>
             <div className="px-2 py-4">
+              <AccessControl allowedRoles={[SystemRole.ADMIN]}>
+                ADMIN ONLY
+              </AccessControl>
+              <AccessControl allowedRoles={[SystemRole.USER]}>
+                USER ONLY
+              </AccessControl>
               <Button variant="outline" size="sm" className="w-full">
                 <Mail className="size-4 mr-2" />
                 Contact
@@ -607,9 +615,9 @@ export default function Home() {
                 </TabsContent>
               </Tabs>
             </div>
-      </main>
+          </main>
         </SidebarInset>
-    </div>
+      </div>
 
       <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
         <CommandInput placeholder="Type a command or search..." />
